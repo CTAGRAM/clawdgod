@@ -36,25 +36,30 @@ RUN pnpm --filter @clawdgod/frontend run build
 FROM node:22-slim AS production
 
 RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy the entire built app (preserves pnpm virtual store symlinks)
+# Copy package files for prod install
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/pnpm-workspace.yaml ./
-COPY --from=builder /app/shared/ shared/
+COPY --from=builder /app/pnpm-lock.yaml ./
+COPY --from=builder /app/shared/package.json shared/
 COPY --from=builder /app/backend/package.json backend/
+COPY --from=builder /app/frontend/package.json frontend/
+
+# Install production deps fresh (proper pnpm symlinks)
+RUN CI=true pnpm install --frozen-lockfile --prod
+
+# Copy built artifacts
+COPY --from=builder /app/shared/dist/ shared/dist/
 COPY --from=builder /app/backend/dist/ backend/dist/
 
 # Frontend artifacts (Next.js standalone)
 COPY --from=builder /app/frontend/.next/standalone ./
 COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
-
-# Copy pnpm virtual store + node_modules (preserves symlink structure)
-COPY --from=builder /app/node_modules/ node_modules/
-COPY --from=builder /app/backend/node_modules/ backend/node_modules/
 
 # Entrypoint
 COPY --from=builder /app/entrypoint.sh /app/entrypoint.sh
