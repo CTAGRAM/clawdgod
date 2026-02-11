@@ -1,0 +1,70 @@
+# ──────────────────────────────────────────────────────────────
+# ClawdGod Frontend — Multi-stage Docker Build
+# Deploys on Koyeb (or any Docker-based platform)
+# ──────────────────────────────────────────────────────────────
+
+# ── Stage 1: Dependencies ──
+FROM node:22-slim AS deps
+
+RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
+
+WORKDIR /app
+
+# Copy workspace config
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY shared/package.json shared/
+COPY frontend/package.json frontend/
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
+
+# ── Stage 2: Build ──
+FROM node:22-slim AS builder
+
+RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
+
+WORKDIR /app
+
+COPY --from=deps /app/ ./
+
+# Copy source
+COPY shared/ shared/
+COPY frontend/ frontend/
+
+# Build shared first
+RUN pnpm --filter @clawdgod/shared run build
+
+# These are baked in at build time — set them via Koyeb env vars
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_ABLY_KEY
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
+
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_ABLY_KEY=$NEXT_PUBLIC_ABLY_KEY
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
+
+# Build frontend
+RUN pnpm --filter @clawdgod/frontend run build
+
+# ── Stage 3: Production ──
+FROM node:22-slim AS production
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Copy built Next.js standalone app
+COPY --from=builder /app/frontend/.next/standalone ./
+COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
+
+# Copy public assets if they exist (optional)
+RUN if [ -d /tmp/public ]; then cp -r /tmp/public ./frontend/public; fi
+COPY --from=builder /app/frontend/public* ./frontend/public/
+
+# Koyeb sets PORT (default 8000)
+EXPOSE 8000
+
+ENV PORT=8000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "frontend/server.js"]
