@@ -48,16 +48,16 @@ export async function billingRoutes(app: FastifyInstance) {
 
             // Call Polar API to create checkout session
             const polarToken = process.env.POLAR_ACCESS_TOKEN;
-            const response = await fetch("https://api.polar.sh/v1/checkouts/custom", {
+            const response = await fetch("https://api.polar.sh/v1/checkouts/", {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${polarToken}`,
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    product_id: productId,
+                    products: [productId],
                     success_url: `${frontendUrl}/dashboard/agents/new?checkout=success`,
-                    customer_metadata: { clawdgod_user_id: userId },
+                    metadata: { clawdgod_user_id: userId },
                 }),
             });
 
@@ -155,7 +155,7 @@ export async function billingRoutes(app: FastifyInstance) {
         switch (eventType) {
             case "subscription.created": {
                 const data = body.data;
-                const userId = data.customer_metadata?.clawdgod_user_id;
+                const userId = data.metadata?.clawdgod_user_id || data.customer_metadata?.clawdgod_user_id;
                 if (!userId) {
                     app.log.warn("subscription.created missing clawdgod_user_id");
                     break;
