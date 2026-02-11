@@ -32,9 +32,6 @@ ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
 RUN pnpm --filter @clawdgod/frontend run build
 
-# Prune to production dependencies
-RUN CI=true pnpm install --frozen-lockfile --prod
-
 # ── Stage 2: Production ──
 FROM node:22-slim AS production
 
@@ -44,22 +41,22 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# ── Backend artifacts ──
+# Copy the entire built app (preserves pnpm virtual store symlinks)
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/pnpm-workspace.yaml ./
-COPY --from=builder /app/shared/package.json shared/
-COPY --from=builder /app/shared/dist/ shared/dist/
+COPY --from=builder /app/shared/ shared/
 COPY --from=builder /app/backend/package.json backend/
 COPY --from=builder /app/backend/dist/ backend/dist/
 
-# ── Frontend artifacts (Next.js standalone) ──
+# Frontend artifacts (Next.js standalone)
 COPY --from=builder /app/frontend/.next/standalone ./
 COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
 
-# ── Production node_modules (pnpm hoists to root) ──
+# Copy pnpm virtual store + node_modules (preserves symlink structure)
 COPY --from=builder /app/node_modules/ node_modules/
+COPY --from=builder /app/backend/node_modules/ backend/node_modules/
 
-# ── Entrypoint ──
+# Entrypoint
 COPY --from=builder /app/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 

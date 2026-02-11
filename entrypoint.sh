@@ -27,8 +27,11 @@ FRONTEND_PID=$!
 
 echo "Both services running. Backend PID=$BACKEND_PID, Frontend PID=$FRONTEND_PID"
 
-# Wait for either process to exit
-wait -n $BACKEND_PID $FRONTEND_PID
+# Trap signals to forward to children
+trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" TERM INT
+
+# Wait for all background processes (POSIX-compatible)
+wait
 EXIT_CODE=$?
 
 echo "A process exited with code $EXIT_CODE. Shutting down..."
