@@ -88,7 +88,7 @@ export async function billingRoutes(app: FastifyInstance) {
     );
 
     // ── Polar Webhook ──
-    app.post("/webhooks/polar", {
+    app.post("/api/webhooks/polar", {
         config: { rawBody: true },
     }, async (request, reply) => {
         const secret = process.env.POLAR_WEBHOOK_SECRET;

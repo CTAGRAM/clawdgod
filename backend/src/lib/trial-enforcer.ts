@@ -10,7 +10,7 @@ import { users, agents, subscriptions } from "../db/schema.js";
 import { TRIAL_LIMITS } from "@clawdgod/shared";
 import { sendTrialExpiryWarning } from "./email.js";
 
-const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || "http://localhost:3002";
+const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || "";
 const INTERNAL_TOKEN = process.env.INTERNAL_API_SECRET || "";
 
 async function callOrchestrator(path: string, method: string, body?: any) {
@@ -97,10 +97,12 @@ async function enforceTrials() {
                     .where(eq(agents.userId, user.id));
 
                 for (const agent of userAgents) {
-                    try {
-                        await callOrchestrator(`/internal/containers/${agent.id}`, "DELETE");
-                    } catch (err) {
-                        console.error(`[trial-enforcer] Failed to delete container for agent ${agent.id}:`, err);
+                    if (ORCHESTRATOR_URL) {
+                        try {
+                            await callOrchestrator(`/internal/containers/${agent.id}`, "DELETE");
+                        } catch (err) {
+                            console.error(`[trial-enforcer] Failed to delete container for agent ${agent.id}:`, err);
+                        }
                     }
                 }
 
@@ -122,14 +124,16 @@ async function enforceTrials() {
 
                 for (const agent of userAgents) {
                     console.log(`[trial-enforcer] Stopping trial agent: ${agent.id}`);
-                    try {
-                        await callOrchestrator(`/internal/containers/${agent.id}/stop`, "POST");
-                    } catch {
-                        // Fallback: try delete
+                    if (ORCHESTRATOR_URL) {
                         try {
-                            await callOrchestrator(`/internal/containers/${agent.id}`, "DELETE");
-                        } catch (err) {
-                            console.error(`[trial-enforcer] Failed to stop agent ${agent.id}:`, err);
+                            await callOrchestrator(`/internal/containers/${agent.id}/stop`, "POST");
+                        } catch {
+                            // Fallback: try delete
+                            try {
+                                await callOrchestrator(`/internal/containers/${agent.id}`, "DELETE");
+                            } catch (err) {
+                                console.error(`[trial-enforcer] Failed to stop agent ${agent.id}:`, err);
+                            }
                         }
                     }
                     await db

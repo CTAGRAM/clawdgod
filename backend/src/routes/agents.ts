@@ -23,7 +23,7 @@ import { generateOpenClawConfig, buildContainerEnvVars } from "../lib/config-gen
 import { PLAN_LIMITS, TRIAL_LIMITS, CONTAINER_DEFAULTS } from "@clawdgod/shared";
 import type { WizardAnswers } from "@clawdgod/shared";
 
-const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || "http://localhost:3002";
+const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || "";
 const INTERNAL_TOKEN = process.env.INTERNAL_API_SECRET || "";
 
 async function callOrchestrator(path: string, method: string, body?: any) {
@@ -275,18 +275,31 @@ export async function agentRoutes(app: FastifyInstance) {
 
         const envVars = buildContainerEnvVars(wizardAnswers as WizardAnswers, apiKey);
 
-        // Fire-and-forget: orchestrator will notify backend of status changes
-        callOrchestrator("/internal/containers/create", "POST", {
-            agentId: agent.id,
-            userId,
-            openclawVersion: CONTAINER_DEFAULTS.openclawVersion,
-            envVars,
-            files: containerFiles,
-            channels: wizardAnswers.channels,
-            enableWhatsappSidecar: wizardAnswers.channels.includes("whatsapp"),
-        }).catch((err) => {
-            app.log.error(err, `Container creation failed for agent ${agent.id}`);
-        });
+        // If orchestrator is configured, fire-and-forget container creation
+        if (ORCHESTRATOR_URL) {
+            callOrchestrator("/internal/containers/create", "POST", {
+                agentId: agent.id,
+                userId,
+                openclawVersion: CONTAINER_DEFAULTS.openclawVersion,
+                envVars,
+                files: containerFiles,
+                channels: wizardAnswers.channels,
+                enableWhatsappSidecar: wizardAnswers.channels.includes("whatsapp"),
+            }).catch((err) => {
+                app.log.error(err, `Container creation failed for agent ${agent.id}`);
+            });
+        } else {
+            // No orchestrator: immediately mark agent as active
+            app.log.info(`No ORCHESTRATOR_URL set — marking agent ${agent.id} as active (standalone mode)`);
+            await db
+                .update(agents)
+                .set({ status: "active", updatedAt: new Date() })
+                .where(eq(agents.id, agent.id));
+            await publishEvent(agent.id, userId, "agent.status", {
+                status: "active",
+                message: "Agent is active (standalone mode)",
+            });
+        }
 
         // 7. If trial user, set trial timestamps (starts the 1-hour clock)
         if (isTrial) {
@@ -325,10 +338,12 @@ export async function agentRoutes(app: FastifyInstance) {
             return reply.status(404).send({ error: "Agent not found" });
         }
 
-        // Call orchestrator to delete container
-        callOrchestrator(`/internal/containers/${id}`, "DELETE").catch((err) => {
-            app.log.error(err, `Container deletion failed for agent ${id}`);
-        });
+        // Call orchestrator to delete container (if configured)
+        if (ORCHESTRATOR_URL) {
+            callOrchestrator(`/internal/containers/${id}`, "DELETE").catch((err) => {
+                app.log.error(err, `Container deletion failed for agent ${id}`);
+            });
+        }
 
         await db.delete(agents).where(eq(agents.id, id));
 
@@ -357,10 +372,19 @@ export async function agentRoutes(app: FastifyInstance) {
 
         await publishEvent(id, userId, "agent.status", { status: "restarting" });
 
-        // Call orchestrator to restart container
-        callOrchestrator(`/internal/containers/${id}/restart`, "POST").catch((err) => {
-            app.log.error(err, `Container restart failed for agent ${id}`);
-        });
+        // Call orchestrator to restart container (if configured)
+        if (ORCHESTRATOR_URL) {
+            callOrchestrator(`/internal/containers/${id}/restart`, "POST").catch((err) => {
+                app.log.error(err, `Container restart failed for agent ${id}`);
+            });
+        } else {
+            // No orchestrator: just set back to active
+            await db
+                .update(agents)
+                .set({ status: "active", updatedAt: new Date() })
+                .where(eq(agents.id, id));
+            await publishEvent(id, userId, "agent.status", { status: "active" });
+        }
 
         return reply.send({ success: true, status: "restarting" });
     });
