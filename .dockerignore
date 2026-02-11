@@ -13,3 +13,7 @@ coverage/
 .gitignore
 docker/
 orchestrator/
+docker-compose.yml
+Caddyfile
+.env.production
+.env.production.example

@@ -1,0 +1,67 @@
+# ──────────────────────────────────────────────────────────────
+# ClawdGod — Docker Compose (DigitalOcean / Self-hosted)
+# Works alongside Koyeb deployment — no code changes needed
+# ──────────────────────────────────────────────────────────────
+#
+# Usage:
+#   1. Copy .env.production.example → .env.production
+#   2. Fill in all values
+#   3. docker compose up -d --build
+#
+# Access: https://your-domain.com (via Caddy auto-HTTPS)
+# ──────────────────────────────────────────────────────────────
+
+services:
+  # ── ClawdGod App (Frontend + Backend) ──
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+        NEXT_PUBLIC_ABLY_KEY: ${NEXT_PUBLIC_ABLY_KEY:-}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+    container_name: clawdgod-app
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      - NODE_ENV=production
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "-O", "-", "http://localhost:3001/health" ]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    networks:
+      - clawdgod
+
+  # ── Caddy (Reverse Proxy + Auto HTTPS) ──
+  caddy:
+    image: caddy:2-alpine
+    container_name: clawdgod-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - clawdgod
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+
+networks:
+  clawdgod:
+    driver: bridge
