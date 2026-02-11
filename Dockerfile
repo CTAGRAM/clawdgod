@@ -16,16 +16,9 @@ COPY . .
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Debug: show pnpm workspace links
-RUN ls -la node_modules/@clawdgod/ && ls -la node_modules/@clawdgod/shared/ || echo "No shared in node_modules root"
-RUN ls -la backend/node_modules/@clawdgod/shared/ 2>/dev/null || echo "No shared in backend/node_modules"
-
-# Build shared first
+# Clean any stale build artifacts and build shared → backend → frontend
+RUN rm -rf shared/dist shared/tsconfig.tsbuildinfo backend/dist
 RUN pnpm --filter @clawdgod/shared run build
-RUN ls -la shared/dist/
-
-# Build backend (using tsc with noEmit=false)
-RUN cd backend && npx tsc --moduleResolution node --skipLibCheck 2>&1 || true
 RUN pnpm --filter @clawdgod/backend run build
 
 # NEXT_PUBLIC_* vars are baked in at build time
