@@ -12,6 +12,13 @@ const nextConfig = {
         NEXT_PUBLIC_ABLY_KEY: process.env.NEXT_PUBLIC_ABLY_KEY || '',
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
     },
+    // Allow webpack to resolve .js imports to .ts files (needed for ESM-style imports in shared package)
+    webpack(config) {
+        config.resolve.extensionAlias = {
+            '.js': ['.ts', '.tsx', '.js', '.jsx'],
+        };
+        return config;
+    },
     // Proxy /api/* to internal backend (port 3001) when running in combined mode
     async rewrites() {
         const backendUrl = process.env.BACKEND_INTERNAL_URL || 'http://localhost:3001';
@@ -29,3 +36,4 @@ const nextConfig = {
 };
 
 export default nextConfig;
+
