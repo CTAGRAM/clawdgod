@@ -33,7 +33,7 @@ ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 RUN pnpm --filter @clawdgod/frontend run build
 
 # Prune to production dependencies
-RUN pnpm install --frozen-lockfile --prod
+RUN CI=true pnpm install --frozen-lockfile --prod
 
 # ── Stage 2: Production ──
 FROM node:22-slim AS production
