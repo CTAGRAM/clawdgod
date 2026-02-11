@@ -3,38 +3,21 @@
 # Single container for Koyeb deployment
 # ──────────────────────────────────────────────────────────────
 
-# ── Stage 1: Install Dependencies ──
-FROM node:22-slim AS deps
-
-RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
-
-WORKDIR /app
-
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY shared/package.json shared/
-COPY backend/package.json backend/
-COPY frontend/package.json frontend/
-
-RUN pnpm install --frozen-lockfile
-
-# ── Stage 2: Build Everything ──
+# ── Stage 1: Build Everything ──
 FROM node:22-slim AS builder
 
 RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
 
 WORKDIR /app
 
-COPY --from=deps /app/ ./
+# Copy entire monorepo (filtered by .dockerignore)
+COPY . .
 
-# Copy all source code
-COPY shared/ shared/
-COPY backend/ backend/
-COPY frontend/ frontend/
+# Install dependencies (pnpm workspace symlinks are preserved in same stage)
+RUN pnpm install --frozen-lockfile
 
-# Build shared (dependency for both)
+# Build shared first, then backend, then frontend
 RUN pnpm --filter @clawdgod/shared run build
-
-# Build backend
 RUN pnpm --filter @clawdgod/backend run build
 
 # NEXT_PUBLIC_* vars are baked in at build time
@@ -46,13 +29,12 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_ABLY_KEY=$NEXT_PUBLIC_ABLY_KEY
 ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
-# Build frontend
 RUN pnpm --filter @clawdgod/frontend run build
 
 # Prune to production dependencies
 RUN pnpm install --frozen-lockfile --prod
 
-# ── Stage 3: Production ──
+# ── Stage 2: Production ──
 FROM node:22-slim AS production
 
 RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
@@ -79,7 +61,7 @@ COPY --from=builder /app/shared/node_modules/ shared/node_modules/
 COPY --from=builder /app/backend/node_modules/ backend/node_modules/
 
 # ── Entrypoint ──
-COPY entrypoint.sh /app/entrypoint.sh
+COPY --from=builder /app/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Koyeb exposes this port (frontend serves here)
