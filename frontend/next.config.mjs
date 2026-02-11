@@ -8,9 +8,23 @@ const nextConfig = {
         },
     },
     env: {
-        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '',
         NEXT_PUBLIC_ABLY_KEY: process.env.NEXT_PUBLIC_ABLY_KEY || '',
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+    },
+    // Proxy /api/* to internal backend (port 3001) when running in combined mode
+    async rewrites() {
+        const backendUrl = process.env.BACKEND_INTERNAL_URL || 'http://localhost:3001';
+        return [
+            {
+                source: '/api/:path*',
+                destination: `${backendUrl}/api/:path*`,
+            },
+            {
+                source: '/health',
+                destination: `${backendUrl}/health`,
+            },
+        ];
     },
 };
 

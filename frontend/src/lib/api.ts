@@ -3,7 +3,9 @@
 // Typed fetch wrapper with JWT auto-refresh
 // ──────────────────────────────────────────────────────────────
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+// Empty string = same-origin (combined deploy via Next.js rewrites)
+// Set NEXT_PUBLIC_API_URL for split deploys (e.g. separate backend service)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 let accessToken: string | null = null;
 
