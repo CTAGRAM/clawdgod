@@ -140,7 +140,7 @@ export default function AgentDetailPage() {
         ? `http://${agent.containerId}`
         : null;
     // Auth URL includes token so Control UI connects without manual token entry
-    const gatewayAuthUrl = gatewayUrl ? `${gatewayUrl}/?token=${agent.id}` : null;
+    const gatewayAuthUrl = gatewayUrl && agent ? `${gatewayUrl}/?token=${agent.id}` : null;
 
     if (loading) {
         return (
