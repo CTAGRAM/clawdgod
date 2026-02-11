@@ -1,0 +1,16 @@
+node_modules/
+.next/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.turbo/
+coverage/
+.git/
+.gitignore
+*.md
+frontend/
+orchestrator/
+docker/

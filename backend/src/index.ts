@@ -20,20 +20,33 @@ import { modelRoutes } from "./routes/models.js";
 
 import { startTrialEnforcer } from "./lib/trial-enforcer.js";
 
+const isProd = process.env.NODE_ENV === "production";
+
 const app = Fastify({
     logger: {
         level: process.env.LOG_LEVEL || "info",
-        transport:
-            process.env.NODE_ENV !== "production"
-                ? { target: "pino-pretty", options: { colorize: true } }
-                : undefined,
+        ...(isProd ? {} : {
+            transport: { target: "pino-pretty", options: { colorize: true } },
+        }),
     },
 });
 
 async function start() {
-    // ── CORS ──
+    // ── CORS (supports comma-separated FRONTEND_URL for multi-origin) ──
+    const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:3000")
+        .split(",")
+        .map((o) => o.trim())
+        .filter(Boolean);
+
     await app.register(fastifyCors, {
-        origin: process.env.FRONTEND_URL || "http://localhost:3000",
+        origin: (origin, cb) => {
+            // Allow requests with no origin (mobile apps, curl, health checks)
+            if (!origin || allowedOrigins.includes(origin)) {
+                cb(null, true);
+            } else {
+                cb(new Error("CORS: origin not allowed"), false);
+            }
+        },
         credentials: true,
     });
 
