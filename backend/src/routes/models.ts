@@ -28,11 +28,19 @@ interface ModelInfo {
 }
 
 async function fetchOpenAICompatible(baseUrl: string, apiKey: string): Promise<ModelInfo[]> {
-    const res = await fetch(`${baseUrl}/models`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
+    const url = `${baseUrl}/models`;
+    const res = await fetch(url, {
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "User-Agent": "ClawdGod/1.0",
+            "HTTP-Referer": "https://clawdgod.com",
+        },
         signal: AbortSignal.timeout(10000),
     });
-    if (!res.ok) throw new Error(`API returned ${res.status}`);
+    if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`API returned ${res.status} from ${url}: ${body.slice(0, 200)}`);
+    }
     const data = await res.json();
     const models = (data.data || []) as any[];
     return models
