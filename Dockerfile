@@ -56,10 +56,8 @@ COPY --from=builder /app/backend/dist/ backend/dist/
 COPY --from=builder /app/frontend/.next/standalone ./
 COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
 
-# ── Production node_modules ──
+# ── Production node_modules (pnpm hoists to root) ──
 COPY --from=builder /app/node_modules/ node_modules/
-COPY --from=builder /app/shared/node_modules/ shared/node_modules/
-COPY --from=builder /app/backend/node_modules/ backend/node_modules/
 
 # ── Entrypoint ──
 COPY --from=builder /app/entrypoint.sh /app/entrypoint.sh
