@@ -10,7 +10,5 @@ dist/
 coverage/
 .git/
 .gitignore
-*.md
-frontend/
-orchestrator/
 docker/
+orchestrator/
