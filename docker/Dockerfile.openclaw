@@ -1,0 +1,38 @@
+# ──────────────────────────────────────────────────────────────
+# ClawdGod — OpenClaw Agent Container
+# Lightweight Node.js image with OpenClaw installed globally
+# ──────────────────────────────────────────────────────────────
+
+FROM node:22-slim
+
+# Install build dependencies (git + ssh needed for openclaw deps)
+RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Force ALL git URLs to use HTTPS
+# The baileys dep uses ssh://git@github.com/whiskeysockets/libsignal-node.git
+ENV GIT_SSH_COMMAND="false"
+RUN git config --system url."https://github.com/".insteadOf "ssh://git@github.com/" \
+    && git config --system url."https://github.com/".insteadOf "git@github.com:" \
+    && git config --system url."https://github.com/".insteadOf "git+ssh://git@github.com/"
+
+# Install OpenClaw globally (pinned version)
+RUN npm install -g openclaw@2026.2.9 || \
+    (echo "Retrying without optional deps..." && npm install -g --omit=optional openclaw@2026.2.9)
+
+# Cleanup build deps to shrink image
+RUN apt-get purge -y --auto-remove git openssh-client python3 make g++ 2>/dev/null; rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r clawdgod && useradd -r -g clawdgod -m -d /home/clawdgod clawdgod
+
+# Create working directories
+RUN mkdir -p /home/clawdgod/.openclaw/workspace /home/clawdgod/.openclaw/memory /home/clawdgod/.openclaw/skills \
+    && chown -R clawdgod:clawdgod /home/clawdgod
+
+WORKDIR /home/clawdgod
+
+USER clawdgod
+
+# Default: run OpenClaw in gateway mode
+CMD ["openclaw", "gateway", "--allow-unconfigured", "--bind", "0.0.0.0"]

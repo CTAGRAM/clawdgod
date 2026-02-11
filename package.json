@@ -1,0 +1,35 @@
+{
+  "name": "clawdgod",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ClawdGod — The secure, managed way to run your OpenClaw AI agent",
+  "scripts": {
+    "dev:backend": "pnpm --filter backend dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:orchestrator": "pnpm --filter orchestrator dev",
+    "dev": "concurrently \"pnpm dev:backend\" \"pnpm dev:frontend\" \"pnpm dev:orchestrator\"",
+    "build": "pnpm --filter shared build && pnpm --filter backend build && pnpm --filter frontend build && pnpm --filter orchestrator build",
+    "start:backend": "pnpm --filter backend start",
+    "start:orchestrator": "pnpm --filter orchestrator start",
+    "db:generate": "pnpm --filter backend db:generate",
+    "db:migrate": "pnpm --filter backend db:migrate",
+    "db:push": "pnpm --filter backend db:push",
+    "test": "pnpm --filter backend test && pnpm --filter orchestrator test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@10.23.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "ssh2",
+      "esbuild",
+      "sharp",
+      "cpu-features",
+      "msgpackr-extract"
+    ]
+  }
+}
