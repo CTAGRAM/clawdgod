@@ -53,7 +53,7 @@ export function generateOpenClawConfig(
         tools: {
             alsoAllow: [
                 "group:plugins",
-                ...(answers.enabledTools || []).map((t) => `tool:${t}`),
+                ...(answers.enabledTools || []).map((t: string) => `tool:${t}`),
             ],
         },
         commands: {

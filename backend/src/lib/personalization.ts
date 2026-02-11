@@ -210,16 +210,16 @@ ${a.recurringTasks ? `- Recurring: ${a.recurringTasks}` : ""}
 }
 
 function generateTemplateToolsMd(a: WizardAnswers): string {
-    const channels = a.channels.map((c) => `- **${c}**: Connected and active`).join("\n");
+    const channels = a.channels.map((c: string) => `- **${c}**: Connected and active`).join("\n");
     return `# TOOLS.md
 
 ## Available Channels
 ${channels}
 
 ## External Integrations
-${a.topTools.map((t) => `- **${t}**: Available for assistance`).join("\n")}
+${a.topTools.map((t: string) => `- **${t}**: Available for assistance`).join("\n")}
 
 ## Scheduled Tasks
-${a.enabledCrons.length > 0 ? a.enabledCrons.map((c) => `- ${c}`).join("\n") : "- None configured"}
+${a.enabledCrons.length > 0 ? a.enabledCrons.map((c: string) => `- ${c}`).join("\n") : "- None configured"}
 `;
 }
