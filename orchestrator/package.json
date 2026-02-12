@@ -1,21 +1,25 @@
 {
     "name": "@clawdgod/orchestrator",
-    "version": "0.2.0",
+    "version": "0.1.0",
     "private": true,
     "type": "module",
     "scripts": {
         "dev": "tsx watch src/index.ts",
         "build": "tsc",
-        "start": "node dist/index.js"
+        "start": "node dist/index.js",
+        "test": "vitest run"
     },
     "dependencies": {
         "@clawdgod/shared": "workspace:*",
         "dotenv": "^17.2.4",
-        "fastify": "^5.2.1"
+        "fastify": "^5.2.1",
+        "ssh2": "^1.16.0"
     },
     "devDependencies": {
         "@types/node": "^22.13.4",
+        "@types/ssh2": "^1.15.4",
         "tsx": "^4.19.4",
-        "typescript": "^5.7.3"
+        "typescript": "^5.7.3",
+        "vitest": "^3.0.5"
     }
 }

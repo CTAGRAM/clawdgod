@@ -1,15 +1,29 @@
 // ──────────────────────────────────────────────────────────────
-// ClawdGod — Local Shell Execution (replaces SSH for same-host)
-// Runs commands directly via child_process when orchestrator
-// is on the same machine as the agent host.
+// ClawdGod — SSH Connection Manager
+// Manages SSH connections to Hetzner VPS nodes for Docker ops
 // ──────────────────────────────────────────────────────────────
 
-import { exec } from "node:child_process";
-import { writeFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
+import { Client } from "ssh2";
+import { readFileSync, existsSync } from "node:fs";
 
-// Keep the SSHConfig interface for API compatibility
-// but the host field is ignored for local execution.
+/**
+ * Resolve SSH private key — if env var is a file path, read it;
+ * otherwise treat it as raw key content.
+ */
+function resolvePrivateKey(): string | undefined {
+    const val = process.env.HETZNER_SSH_PRIVATE_KEY;
+    if (!val) return undefined;
+    // If it looks like a file path, read it as UTF-8 string
+    // (ssh2 needs OpenSSH-format keys as strings, not raw Buffers)
+    if (val.startsWith("/") || val.startsWith("~")) {
+        const expanded = val.replace(/^~/, process.env.HOME || "");
+        if (existsSync(expanded)) {
+            return readFileSync(expanded, "utf-8");
+        }
+    }
+    return val;
+}
+
 export interface SSHConfig {
     host: string;
     port?: number;
@@ -18,33 +32,88 @@ export interface SSHConfig {
 }
 
 /**
- * Execute a command on the local machine.
- * API-compatible with the SSH version — SSHConfig is accepted but ignored.
+ * Execute a command on a remote VPS via SSH.
+ * Returns { stdout, stderr, exitCode }.
  */
 export function sshExec(
-    _config: SSHConfig,
+    config: SSHConfig,
     command: string
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    return new Promise((resolve) => {
-        exec(command, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
-            resolve({
-                stdout: (stdout || "").trim(),
-                stderr: (stderr || "").trim(),
-                exitCode: error ? (error.code ?? 1) : 0,
+    return new Promise((resolve, reject) => {
+        const conn = new Client();
+
+        conn
+            .on("ready", () => {
+                conn.exec(command, (err, stream) => {
+                    if (err) {
+                        conn.end();
+                        return reject(err);
+                    }
+
+                    let stdout = "";
+                    let stderr = "";
+
+                    stream.on("data", (data: Buffer) => {
+                        stdout += data.toString();
+                    });
+
+                    stream.stderr.on("data", (data: Buffer) => {
+                        stderr += data.toString();
+                    });
+
+                    stream.on("close", (code: number) => {
+                        conn.end();
+                        resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: code });
+                    });
+                });
+            })
+            .on("error", reject)
+            .connect({
+                host: config.host,
+                port: config.port ?? 22,
+                username: config.username ?? "root",
+                privateKey: config.privateKey ?? resolvePrivateKey(),
             });
-        });
     });
 }
 
 /**
- * Write a file to the local filesystem.
- * API-compatible with the SSH version.
+ * Transfer a file to the remote VPS via SFTP.
  */
-export async function sshWriteFile(
-    _config: SSHConfig,
-    filePath: string,
+export function sshWriteFile(
+    config: SSHConfig,
+    remotePath: string,
     content: string
 ): Promise<void> {
-    await mkdir(dirname(filePath), { recursive: true });
-    await writeFile(filePath, content, "utf-8");
+    return new Promise((resolve, reject) => {
+        const conn = new Client();
+
+        conn
+            .on("ready", () => {
+                conn.sftp((err, sftp) => {
+                    if (err) {
+                        conn.end();
+                        return reject(err);
+                    }
+
+                    const stream = sftp.createWriteStream(remotePath);
+                    stream.on("close", () => {
+                        conn.end();
+                        resolve();
+                    });
+                    stream.on("error", (e: Error) => {
+                        conn.end();
+                        reject(e);
+                    });
+                    stream.end(content);
+                });
+            })
+            .on("error", reject)
+            .connect({
+                host: config.host,
+                port: config.port ?? 22,
+                username: config.username ?? "root",
+                privateKey: config.privateKey ?? resolvePrivateKey(),
+            });
+    });
 }

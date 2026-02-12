@@ -8,8 +8,6 @@ import type { ContainerCreateRequest } from "@clawdgod/shared";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3001";
 const INTERNAL_TOKEN = process.env.INTERNAL_API_SECRET || "";
-const OPENCLAW_BIN = process.env.OPENCLAW_BIN || "openclaw";
-
 
 // Each agent gets a unique port starting from this base
 const BASE_GATEWAY_PORT = 18800;
@@ -133,7 +131,7 @@ EnvironmentFile=${stateDir}/.env
 Environment=OPENCLAW_STATE_DIR=${stateDir}
 Environment=OPENCLAW_CONFIG_PATH=${configFile}
 Environment=NODE_ENV=production
-ExecStart=${OPENCLAW_BIN} gateway
+ExecStart=/usr/bin/openclaw gateway
 Restart=always
 RestartSec=5
 StandardOutput=journal

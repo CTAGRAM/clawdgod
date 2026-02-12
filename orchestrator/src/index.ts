@@ -37,9 +37,13 @@ app.addHook("preHandler", async (request, reply) => {
     }
 });
 
-// ── Helper: local "node" config (SSHConfig interface kept for compat) ──
+// ── Helper: pick VPS node for new agent ──
 function getNodeSSH(): SSHConfig {
-    return { host: "127.0.0.1" };
+    // For MVP, use a single node. Multi-node logic comes later.
+    return {
+        host: process.env.HETZNER_NODE_IP || "127.0.0.1",
+        username: "root",
+    };
 }
 
 // ── Create Agent ──
