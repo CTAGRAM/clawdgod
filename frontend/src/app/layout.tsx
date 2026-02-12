@@ -6,14 +6,15 @@ export const metadata: Metadata = {
     description:
         "The secure, managed way to run your OpenClaw AI agent. Deploy to Telegram, WhatsApp, and Discord without writing a single line of code.",
     keywords: ["AI agent", "OpenClaw", "Telegram bot", "WhatsApp bot", "Discord bot", "managed hosting"],
+    icons: {
+        icon: "/favicon.ico",
+        apple: "/apple-icon.png",
+    },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="en" className="dark">
-            <head>
-                <link rel="icon" href="/favicon.ico" />
-            </head>
             <body className="min-h-screen bg-background">{children}</body>
         </html>
     );

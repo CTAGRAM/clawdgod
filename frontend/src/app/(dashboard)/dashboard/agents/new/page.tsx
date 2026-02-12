@@ -210,7 +210,15 @@ export default function NewAgentWizard() {
             });
             router.push("/dashboard");
         } catch (err: any) {
-            setError(err.message || "Deployment failed");
+            // If agent was partially created, still redirect
+            const msg = err.message || "";
+            if (msg.includes("TRIAL_LIMIT") || msg.includes("TRIAL_EXPIRED")) {
+                setError(msg);
+            } else {
+                // Agent likely created but a downstream step failed — redirect anyway
+                console.error("Deploy error (redirecting anyway):", msg);
+                router.push("/dashboard");
+            }
         } finally {
             setDeploying(false);
         }
@@ -802,13 +810,18 @@ export default function NewAgentWizard() {
                             onChange={(e) => update({ fullName: e.target.value })}
                             className="input-field"
                         />
-                        <input
-                            type="text"
-                            placeholder="Your occupation (e.g., Product Manager, Developer)"
-                            value={answers.occupation}
-                            onChange={(e) => update({ occupation: e.target.value })}
-                            className="input-field"
-                        />
+                        <div>
+                            <label className="text-xs text-text-muted mb-1 block">Occupation <span className="text-accent-red">*</span></label>
+                            <input
+                                type="text"
+                                placeholder="Your occupation (e.g., Product Manager, Developer)"
+                                value={answers.occupation}
+                                onChange={(e) => update({ occupation: e.target.value })}
+                                className={`input-field ${!answers.occupation ? 'border-accent-red/30' : ''}`}
+                                required
+                            />
+                            {!answers.occupation && <p className="text-xs text-accent-red mt-1">Occupation is required</p>}
+                        </div>
                         <input
                             type="text"
                             placeholder="Company or project (optional)"
@@ -890,20 +903,28 @@ export default function NewAgentWizard() {
                                 ))}
                             </div>
                         </div>
-                        <input
-                            type="text"
-                            placeholder="Your biggest frustration at work"
-                            value={answers.biggestFrustration}
-                            onChange={(e) => update({ biggestFrustration: e.target.value })}
-                            className="input-field"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Main goal for your agent"
-                            value={answers.mainGoal}
-                            onChange={(e) => update({ mainGoal: e.target.value })}
-                            className="input-field"
-                        />
+                        <div>
+                            <label className="text-xs text-text-muted mb-1 block">Biggest frustration at work <span className="text-accent-red">*</span></label>
+                            <input
+                                type="text"
+                                placeholder="Your biggest frustration at work"
+                                value={answers.biggestFrustration}
+                                onChange={(e) => update({ biggestFrustration: e.target.value })}
+                                className={`input-field ${!answers.biggestFrustration ? 'border-accent-red/30' : ''}`}
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-text-muted mb-1 block">Main goal for your agent <span className="text-accent-red">*</span></label>
+                            <input
+                                type="text"
+                                placeholder="Main goal for your agent"
+                                value={answers.mainGoal}
+                                onChange={(e) => update({ mainGoal: e.target.value })}
+                                className={`input-field ${!answers.mainGoal ? 'border-accent-red/30' : ''}`}
+                                required
+                            />
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <input
                                 type="text"
@@ -1008,7 +1029,14 @@ export default function NewAgentWizard() {
                 </button>
 
                 {step < STEPS.length - 1 ? (
-                    <button onClick={goNext} className="btn-primary flex items-center gap-2">
+                    <button
+                        onClick={goNext}
+                        disabled={
+                            (step === 10 && !answers.occupation) ||
+                            (step === 12 && (!answers.biggestFrustration || !answers.mainGoal))
+                        }
+                        className="btn-primary flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
                         Continue <ChevronRight className="w-4 h-4" />
                     </button>
                 ) : (

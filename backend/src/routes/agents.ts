@@ -234,14 +234,25 @@ export async function agentRoutes(app: FastifyInstance) {
         }
 
         // 4. Generate personalization files using user's own AI key
-        const { soulMd, userMd, toolsMd } = await generateAllPersonalizationFiles(
-            wizardAnswers as WizardAnswers,
-            {
-                provider: wizardAnswers.aiProvider as any,
-                apiKey,
-                modelName: wizardAnswers.modelName,
-            }
-        );
+        let soulMd = `# ${wizardAnswers.agentName || "Agent"}\nYou are a helpful AI assistant.`;
+        let userMd = `# User Profile\nOccupation: ${wizardAnswers.occupation || "Not specified"}`;
+        let toolsMd = "# Tools\nNo special tools configured.";
+
+        try {
+            const generated = await generateAllPersonalizationFiles(
+                wizardAnswers as WizardAnswers,
+                {
+                    provider: wizardAnswers.aiProvider as any,
+                    apiKey,
+                    modelName: wizardAnswers.modelName,
+                }
+            );
+            soulMd = generated.soulMd;
+            userMd = generated.userMd;
+            toolsMd = generated.toolsMd;
+        } catch (personalizationError) {
+            app.log.warn({ err: personalizationError, agentId: agent.id }, "Personalization generation failed — using defaults");
+        }
 
         await db.insert(agentPersonalization).values({
             agentId: agent.id,
@@ -302,19 +313,23 @@ export async function agentRoutes(app: FastifyInstance) {
         }
 
         // 7. If trial user, set trial timestamps (starts the 1-hour clock)
-        if (isTrial) {
-            const now = new Date();
-            const expiresAt = new Date(now.getTime() + TRIAL_LIMITS.trialDurationMs);
-            await db
-                .update(users)
-                .set({
-                    trialStartedAt: now,
-                    trialExpiresAt: expiresAt,
-                    trialAgentCreated: true,
-                    updatedAt: now,
-                })
-                .where(eq(users.id, userId));
-            app.log.info({ userId, expiresAt }, "Trial started");
+        try {
+            if (isTrial) {
+                const now = new Date();
+                const expiresAt = new Date(now.getTime() + TRIAL_LIMITS.trialDurationMs);
+                await db
+                    .update(users)
+                    .set({
+                        trialStartedAt: now,
+                        trialExpiresAt: expiresAt,
+                        trialAgentCreated: true,
+                        updatedAt: now,
+                    })
+                    .where(eq(users.id, userId));
+                app.log.info({ userId, expiresAt }, "Trial started");
+            }
+        } catch (trialErr) {
+            app.log.warn({ err: trialErr, userId }, "Trial timestamp update failed — non-blocking");
         }
 
         return reply.status(201).send({

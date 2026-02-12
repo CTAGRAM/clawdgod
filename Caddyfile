@@ -1,19 +1,11 @@
-# ──────────────────────────────────────────────────────────────
-# Caddyfile — Automatic HTTPS reverse proxy for ClawdGod
-# Replace YOUR_DOMAIN with your actual domain name
-# ──────────────────────────────────────────────────────────────
-
-# Replace this with your domain (e.g., clawdgod.astitwa.ai)
-YOUR_DOMAIN {
+clawdgod.astitwa.ai {
     reverse_proxy app:8000
 
-    # Security headers
     header {
         X-Content-Type-Options nosniff
         X-Frame-Options DENY
         Referrer-Policy strict-origin-when-cross-origin
     }
 
-    # Gzip compression
     encode gzip
 }
